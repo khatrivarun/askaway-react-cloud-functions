@@ -79,3 +79,65 @@ exports.onQuestionDeleted = functions.firestore
     // Saving the object.
     return index.deleteObject(deletedQuestionId);
   });
+
+/**
+ * Sync newly added data with Algolia to enable searching
+ * on the main app itself.
+ */
+exports.onUserCreated = functions.firestore
+  .document('users/{userId}')
+  .onCreate((snapshot, context) => {
+    const user = snapshot.data();
+    const userId = snapshot.id;
+
+    // Preparing object to be stored on algolia.
+    const algoliaUser = {
+      objectID: userId,
+      displayName: user.displayName,
+    };
+
+    // Preparing algolia index.
+    const index = algoliaClient.initIndex(algoliaKeys.userIndexName);
+
+    // Saving the object.
+    return index.saveObject(algoliaUser);
+  });
+
+/**
+ * Sync any changes made to any previously existing question
+ * with Algolia.
+ */
+exports.onUserUpdated = functions.firestore
+  .document('users/{userId}')
+  .onUpdate((change, context) => {
+    const updatedUser = change.after.data();
+    const userId = change.before.id;
+
+    // Preparing object to be stored on algolia.
+    const algoliaUser = {
+      objectID: userId,
+      displayName: updatedUser.displayName,
+    };
+
+    // Preparing algolia index.
+    const index = algoliaClient.initIndex(algoliaKeys.userIndexName);
+
+    // Saving the object.
+    return index.saveObject(algoliaUser);
+  });
+
+/**
+ * When a product is deleted from firebase, delete
+ * it from Algolia as well
+ */
+exports.onUserDeleted = functions.firestore
+  .document('users/{userId}')
+  .onDelete((snapshot, context) => {
+    const deletedUserId = snapshot.id;
+
+    // Preparing algolia index.
+    const index = algoliaClient.initIndex(algoliaKeys.userIndexName);
+
+    // Saving the object.
+    return index.deleteObject(deletedUserId);
+  });
