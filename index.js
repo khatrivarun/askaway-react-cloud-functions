@@ -173,3 +173,73 @@ exports.searchForUsers = functions.https.onRequest(async (req, res) => {
   // Sending the data to client.
   res.send(searchResult);
 });
+
+/**
+ * Actual searching mechanism for question. First query the algolia database
+ * for ids and run it through firestore to get the actual data.
+ */
+exports.searchForQuestions = functions.https.onRequest(async (req, res) => {
+  // Getting the search query
+  const searchQuery = req.query.searchQuery;
+
+  // Initializing Algolia.
+  const index = algoliaClient.initIndex(algoliaKeys.indexName);
+
+  // Searching across Algolia database.
+  const search = (await index.search(searchQuery)).hits;
+
+  // Getting specific ids to fetch from firestore.
+  const objectIds = search.map((result) => result.objectID);
+
+  // If search results are empty, return an empty array.
+  if (objectIds.length === 0) {
+    res.send([]);
+  }
+
+  // Fetching documents from firestore.
+  const searchResult = await firebaseUtils.getFirestoreDocsById(
+    objectIds,
+    'questions'
+  );
+
+  // Sending the data to client.
+  res.send(searchResult);
+});
+
+/**
+ * Searching and filtering by categories
+ */
+exports.searchForQuestionsByCategories = functions.https.onRequest(
+  async (req, res) => {
+    // Getting the search query and categories.
+    const searchQuery = req.query.searchQuery;
+    const categories = req.query.categories;
+
+    // Initializing Algolia.
+    const index = algoliaClient.initIndex(algoliaKeys.indexName);
+
+    // Searching across Algolia database.
+    const search = (
+      await index.search(searchQuery, {
+        filters: algoliaUtils.generateCategoryQuery('categories', categories),
+      })
+    ).hits;
+
+    // Getting specific ids to fetch from firestore.
+    const objectIds = search.map((result) => result.objectID);
+
+    // If search results are empty, return an empty array.
+    if (objectIds.length === 0) {
+      res.send([]);
+    }
+
+    // Fetching documents from firestore.
+    const searchResult = await firebaseUtils.getFirestoreDocsById(
+      objectIds,
+      'questions'
+    );
+
+    // Sending the data to client.
+    res.send(searchResult);
+  }
+);
