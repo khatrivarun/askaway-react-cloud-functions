@@ -1,9 +1,81 @@
 const functions = require('firebase-functions');
+const admin = require('firebase-admin');
+const algoliaSearch = require('algoliasearch');
+const algoliaKeys = require('./keys/algolia');
+const firebaseUtils = require('./utils/firebase');
+const algoliaUtils = require('./utils/algolia');
 
-// // Create and Deploy Your First Cloud Functions
-// // https://firebase.google.com/docs/functions/write-firebase-functions
+// Initializing firebase admin.
+admin.initializeApp();
 
-exports.helloWorld = functions.https.onRequest((request, response) => {
-  functions.logger.info('Hello logs!', { structuredData: true });
-  response.send('Hello from Firebase!');
-});
+// Initializing algolia client.
+const algoliaClient = algoliaSearch(
+  algoliaKeys.applicationId,
+  algoliaKeys.adminKey
+);
+
+/**
+ * Sync newly added data with Algolia to enable searching
+ * on the main app itself.
+ */
+exports.onQuestionCreated = functions.firestore
+  .document('questions/{questionId}')
+  .onCreate((snapshot, context) => {
+    const question = snapshot.data();
+    const questionId = snapshot.id;
+
+    // Preparing object to be stored on algolia.
+    const algoliaQuestion = {
+      objectID: questionId,
+      question: question.question,
+      description: question.description,
+      categories: question.categories,
+    };
+
+    // Preparing algolia index.
+    const index = algoliaClient.initIndex(algoliaKeys.indexName);
+
+    // Saving the object.
+    return index.saveObject(algoliaQuestion);
+  });
+
+/**
+ * Sync any changes made to any previously existing question
+ * with Algolia.
+ */
+exports.onQuestionUpdated = functions.firestore
+  .document('questions/{questionId}')
+  .onUpdate((change, context) => {
+    const updatedQuestion = change.after.data();
+    const questionId = change.before.id;
+
+    // Preparing object to be stored on algolia.
+    const algoliaQuestion = {
+      objectID: questionId,
+      question: updatedQuestion.question,
+      description: updatedQuestion.description,
+      categories: updatedQuestion.categories,
+    };
+
+    // Preparing algolia index.
+    const index = algoliaClient.initIndex(algoliaKeys.indexName);
+
+    // Saving the object.
+    return index.saveObject(algoliaQuestion);
+  });
+
+/**
+ * When a product is deleted from firebase, delete
+ * it from Algolia as well
+ */
+exports.onQuestionDeleted = functions.firestore
+  .document('questions/{questionId}')
+  .onDelete((snapshot, context) => {
+    const deletedQuestionId = snapshot.id;
+
+    // Preparing algolia index.
+    const index = algoliaClient.initIndex(algoliaKeys.indexName);
+
+    // Saving the object.
+    return index.deleteObject(deletedQuestionId);
+  });
