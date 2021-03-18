@@ -141,3 +141,35 @@ exports.onUserDeleted = functions.firestore
     // Saving the object.
     return index.deleteObject(deletedUserId);
   });
+
+/**
+ * Actual searching mechanism for user. First query the algolia database
+ * for ids and run it through firestore to get the actual data.
+ */
+exports.searchForUsers = functions.https.onRequest(async (req, res) => {
+  // Getting the search query
+  const searchQuery = req.query.searchQuery;
+
+  // Initializing Algolia.
+  const index = algoliaClient.initIndex(algoliaKeys.userIndexName);
+
+  // Searching across Algolia database.
+  const search = (await index.search(searchQuery)).hits;
+
+  // Getting specific ids to fetch from firestore.
+  const objectIds = search.map((result) => result.objectID);
+
+  // If search results are empty, return an empty array.
+  if (objectIds.length === 0) {
+    res.send([]);
+  }
+
+  // Fetching documents from firestore.
+  const searchResult = await firebaseUtils.getFirestoreDocsById(
+    objectIds,
+    'users'
+  );
+
+  // Sending the data to client.
+  res.send(searchResult);
+});
