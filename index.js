@@ -27,9 +27,14 @@ exports.onQuestionCreated = functions.firestore
     // Preparing object to be stored on algolia.
     const algoliaQuestion = {
       objectID: questionId,
-      question: question.question,
-      description: question.description,
+      id: questionId,
+      answers: question.answers,
+      byUser: question.byUser,
       categories: question.categories,
+      description: question.description,
+      likes: question.likes,
+      question: question.question,
+      selectedAnswerId: question.selectedAnswerId,
     };
 
     // Preparing algolia index.
@@ -50,11 +55,17 @@ exports.onQuestionUpdated = functions.firestore
     const questionId = change.before.id;
 
     // Preparing object to be stored on algolia.
+    // Preparing object to be stored on algolia.
     const algoliaQuestion = {
       objectID: questionId,
-      question: updatedQuestion.question,
-      description: updatedQuestion.description,
+      id: questionId,
+      answers: updatedQuestion.answers,
+      byUser: updatedQuestion.byUser,
       categories: updatedQuestion.categories,
+      description: updatedQuestion.description,
+      likes: updatedQuestion.likes,
+      question: updatedQuestion.question,
+      selectedAnswerId: updatedQuestion.selectedAnswerId,
     };
 
     // Preparing algolia index.
